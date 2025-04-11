@@ -1,0 +1,26 @@
+{
+  "name": "qr-auth-be",
+  "version": "1.0.0",
+  "description": "An API solely for QR code authentication",
+  "main": "app.jj",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js"
+  },
+  "keywords": [
+    "auth",
+    "node",
+    "js",
+    "security"
+  ],
+  "author": "Oluwayimika Oladipupo",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "mongoose": "^8.13.2",
+    "qrcode": "^1.5.4"
+  }
+}
