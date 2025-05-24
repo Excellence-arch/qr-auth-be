@@ -1,5 +1,6 @@
-const AccountModel = require('../models/Account.model');
-const EventModel = require('../models/Event.model');
+const Account = require('../models/Account.model');
+const Attendee = require('../models/Attendee.model');
+const Event = require('../models/Event.model');
 
 exports.register = async (req, res) => {
   try {
@@ -266,9 +267,11 @@ exports.getUserEvents = async (req, res) => {
 }
 
 
+
 exports.getUserDashboardAnalytics = async (req, res) => {
   try {
     const userId = req.user.id;
+    const currentDate = new Date();
 
     // 1. Get total events count
     const totalEvents = await EventModel.countDocuments({ account: userId });
@@ -280,15 +283,30 @@ exports.getUserDashboardAnalytics = async (req, res) => {
       0
     );
 
-    // 3. Get upcoming events (using status OR date filtering)
-    const currentDate = new Date();
+    // 3. Get upcoming events (using status OR start date filtering)
     const upcomingEvents = await EventModel.find({
       account: userId,
       $or: [
-        { status: { $in: ['upcoming', 'active'] } },
-        { date: { $gte: currentDate } },
-      ],
-    });
+        { status: { $in: ['upcoming', 'active', 'ongoing'] } },
+        { startDate: { $gte: currentDate } }
+      ]
+    })
+    .sort({ startDate: 1 })
+    .limit(3);
+
+    // 4. Get recent events (sorted by creation date)
+    const recentEvents = await EventModel.find({ account: userId })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .populate('attendees');
+
+    // 5. Get recent attendees (across all events)
+    const recentAttendees = await AttendeeModel.find({
+      event: { $in: events.map(e => e._id) }
+    })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .populate('event');
 
     res.status(200).json({
       success: true,
@@ -298,20 +316,47 @@ exports.getUserDashboardAnalytics = async (req, res) => {
         upcomingEvents: upcomingEvents.map((event) => ({
           id: event._id,
           name: event.name,
-          date: event.date,
+          startDate: event.startDate,
+          endDate: event.endDate,
+          startTime: event.startTime,
+          endTime: event.endTime,
           location: event.location,
           status: event.status,
           attendeesCount: event.attendees?.length || 0,
           image: event.image,
+          capacity: event.capacity,
+          isPublic: event.isPublic
         })),
-      },
+        recentEvents: recentEvents.map((event) => ({
+          id: event._id,
+          name: event.name,
+          startDate: event.startDate,
+          endDate: event.endDate,
+          startTime: event.startTime,
+          endTime: event.endTime,
+          location: event.location,
+          description: event.description,
+          status: event.status,
+          attendeesCount: event.attendees?.length || 0,
+          capacity: event.capacity,
+          isPublic: event.isPublic
+        })),
+        recentAttendees: recentAttendees.map((attendee) => ({
+          id: attendee._id,
+          name: attendee.name,
+          email: attendee.email,
+          phone: attendee.phone,
+          eventId: attendee.event._id,
+          eventName: attendee.event.name
+        }))
+      }
     });
   } catch (error) {
     console.error('Error fetching analytics:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch dashboard analytics',
-      error: error.message, // Include error message for debugging
+      error: error.message
     });
   }
 };

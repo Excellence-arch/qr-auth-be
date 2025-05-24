@@ -8,7 +8,10 @@ const eventSchema = new mongoose.Schema(
       ref: 'Account',
       required: true,
     },
-    date: { type: Date, required: true },
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
+    startTime: { type: String, required: false },
+    endTime: { type: String },
     location: { type: String, required: true },
     description: { type: String, required: true },
     status: {
@@ -29,8 +32,13 @@ const eventSchema = new mongoose.Schema(
       },
     ],
     image: { type: String },
+    capacity: { type: Number, default: 0 },
+    isPublic: { type: Boolean, default: true },
+    tickets: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Ticket' }],
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Event', eventSchema);
+const Event = mongoose.model('Event', eventSchema);
+
+module.exports = Event;

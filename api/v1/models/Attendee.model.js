@@ -4,7 +4,6 @@ const attendeeSchema = mongoose.Schema(
   {
     name: { type: String },
     email: { type: String },
-    email: { type: String },
     phone: { type: String },
     event: {
       type: mongoose.Schema.Types.ObjectId,
@@ -16,4 +15,6 @@ const attendeeSchema = mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Atendee', attendeeSchema);
+const Attendee = mongoose.model('Attendee', attendeeSchema);
+
+module.exports = Attendee;

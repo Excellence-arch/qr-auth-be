@@ -5,7 +5,7 @@ exports.generateQR = async (req, res) => {
   const newCode = await Code.create({});
   const qrUrl = `${process.env.FRONTEND_URL}/verify-qr.html?id=${newCode._id}`;
   const qrImage = await QRCode.toDataURL(qrUrl);
-  res.json({ qrImage });
+  return res.json({ qrImage });
 };
 
 // exports.validateQR = async (req, res) => {
@@ -63,3 +63,9 @@ exports.validateQR = async (req, res) => {
     // );
   }
 };
+
+
+
+
+
+
