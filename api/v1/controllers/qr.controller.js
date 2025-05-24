@@ -24,25 +24,42 @@ exports.validateQR = async (req, res) => {
     const code = await Code.findById(req.params.id);
 
     if (!code) {
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/verification-failure.html?reason=invalid`
-      );
+      return res.status(404).json({
+        status: false,
+        message: 'QR code not found',
+      });
     }
+      // return res.redirect(
+      //   `${process.env.FRONTEND_URL}/verification-failure.html?reason=invalid`
+      // );
+    // }
 
     if (code.used) {
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/verification-failure.html?reason=used`
-      );
+      return res.status(400).json({
+        status: false,
+        message: 'QR code already used',
+      });
+      // return res.redirect(
+      //   `${process.env.FRONTEND_URL}/verification-failure.html?reason=used`
+      // );
     }
 
     code.used = true;
     await code.save();
 
-    res.redirect(`${process.env.FRONTEND_URL}//verification-success.html`);
+    res.status(200).json({
+      status: 'success',
+      message: 'QR code validated successfully',
+    });
+    // res.redirect(`${process.env.FRONTEND_URL}/verification-success.html`);
   } catch (error) {
     console.error('Error validating QR:', error);
-    res.redirect(
-      `${process.env.FRONTEND_URL}/verification-failure.html?reason=error`
-    );
+    res.status(500).json({
+      status: false,
+      message: 'Internal server error',
+    });
+    // res.redirect(
+    //   `${process.env.FRONTEND_URL}/verification-failure.html?reason=error`
+    // );
   }
 };
