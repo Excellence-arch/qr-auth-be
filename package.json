@@ -5,7 +5,8 @@
   "main": "app.jj",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node app.js"
+    "start": "node app.js",
+    "dev": "nodemon app.js"
   },
   "keywords": [
     "auth",
@@ -21,6 +22,10 @@
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "mongoose": "^8.13.2",
+    "morgan": "^1.10.0",
     "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   }
 }
