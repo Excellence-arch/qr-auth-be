@@ -7,16 +7,16 @@ exports.register = async (req, res) => {
     const { username, email, password } = req.body;
 
     // Check if user already exists
-    const existingUser = await AccountModel.findOne({ username });
+    const existingUser = await Account.findOne({ username });
     if (existingUser) {
       return res.status(400).json({
         status: false,
         message: 'Username already exists',
       });
     }
-    const hash = await AccountModel.hashPassword(password);
+    const hash = await Account.hashPassword(password);
     // Create new user
-    const newUser = await AccountModel.create({
+    const newUser = await Account.create({
       username,
       email,
       password: hash,
@@ -53,7 +53,7 @@ exports.login = async (req, res) => {
     }
 
     // Check if user exists
-    const user = await AccountModel.findOne({ username });
+    const user = await Account.findOne({ username });
     if (!user) {
       return res.status(401).json({
         status: false,
@@ -62,7 +62,7 @@ exports.login = async (req, res) => {
     }
     // console.log(user)
     // Check if password is correct
-    const isPasswordCorrect = await AccountModel.comparePassword(password, user.password);
+    const isPasswordCorrect = await Account.comparePassword(password, user.password);
     if (!isPasswordCorrect) {
       return res.status(401).json({
         status: false,
@@ -70,7 +70,7 @@ exports.login = async (req, res) => {
       });
     }
     // Generate JWT token
-    const token = AccountModel.generateAuthToken(user, rememberMe);
+    const token = Account.generateAuthToken(user, rememberMe);
     // console.log(token)
     res.status(200).json({
       status: true,
@@ -100,7 +100,7 @@ exports.editUser = async (req, res) => {
 
   try {
     // Find the user by ID
-    const user = await AccountModel.findById(id);
+    const user = await Account.findById(id);
     if (!user) {
       return res.status(404).json({
         status: false,
@@ -112,7 +112,7 @@ exports.editUser = async (req, res) => {
     user.username = username || user.username;
     user.email = email || user.email;
     if (password) {
-      user.password = await AccountModel.hashPassword(password);
+      user.password = await Account.hashPassword(password);
     }
     await user.save();
     res.status(200).json({
@@ -142,7 +142,7 @@ exports.deleteUser = async (req, res) => {
 
   try {
     // Find the user by ID
-    const user = await AccountModel.findById(id);
+    const user = await Account.findById(id);
     if (!user) {
       return res.status(404).json({
         status: false,
@@ -171,7 +171,7 @@ exports.getUser = async (req, res) => {
 
   try {
     // Find the user by ID
-    const user = await AccountModel.findById(req.user.id).populate('events');
+    const user = await Account.findById(req.user.id).populate('events');
     if (!user) {
       return res.status(404).json({
         status: false,
@@ -209,7 +209,7 @@ exports.getUser = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await AccountModel.find();
+    const users = await Account.find();
     res.status(200).json({
       status: true,
       message: 'Users retrieved successfully',
@@ -237,7 +237,7 @@ exports.getUserEvents = async (req, res) => {
 
   try {
     // Find the user by ID
-    const user = await AccountModel.findById(id).populate('events');
+    const user = await Account.findById(id).populate('events');
     if (!user) {
       return res.status(404).json({
         status: false,
@@ -274,17 +274,17 @@ exports.getUserDashboardAnalytics = async (req, res) => {
     const currentDate = new Date();
 
     // 1. Get total events count
-    const totalEvents = await EventModel.countDocuments({ account: userId });
+    const totalEvents = await Event.countDocuments({ account: userId });
 
     // 2. Get total attendees across all events
-    const events = await EventModel.find({ account: userId }).populate('attendees');
+    const events = await Event.find({ account: userId }).populate('attendees');
     const totalAttendees = events.reduce(
       (sum, event) => sum + (event.attendees?.length || 0),
       0
     );
 
     // 3. Get upcoming events (using status OR start date filtering)
-    const upcomingEvents = await EventModel.find({
+    const upcomingEvents = await Event.find({
       account: userId,
       $or: [
         { status: { $in: ['upcoming', 'active', 'ongoing'] } },
@@ -295,13 +295,13 @@ exports.getUserDashboardAnalytics = async (req, res) => {
     .limit(3);
 
     // 4. Get recent events (sorted by creation date)
-    const recentEvents = await EventModel.find({ account: userId })
+    const recentEvents = await Event.find({ account: userId })
       .sort({ createdAt: -1 })
       .limit(3)
       .populate('attendees');
 
     // 5. Get recent attendees (across all events)
-    const recentAttendees = await AttendeeModel.find({
+    const recentAttendees = await Attendee.find({
       event: { $in: events.map(e => e._id) }
     })
       .sort({ createdAt: -1 })

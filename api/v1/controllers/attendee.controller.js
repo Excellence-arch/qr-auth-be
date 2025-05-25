@@ -39,12 +39,18 @@ exports.addAttendee = async (req, res) => {
     }
 
     // Process ticket in parallel with other operations
+    // Suggested improvement for ticket handling in addAttendee
     const ticketPromise = (async () => {
+      if (!ticketType) return null;
+
       const normalizedTicketType = ticketType.toUpperCase();
       let ticket = await Ticket.findOne({ name: normalizedTicketType });
-      if (!ticket && ticketType) {
-        ticket = await Ticket.create({ name: normalizedTicketType });
-        // Add new ticket to event if it doesn't exist
+
+      if (!ticket) {
+        ticket = await Ticket.create({
+          name: normalizedTicketType,
+          price: 0, // Default price
+        });
         if (!event.tickets.includes(ticket._id)) {
           event.tickets.push(ticket._id);
         }
@@ -107,13 +113,28 @@ exports.addAttendee = async (req, res) => {
 };
 
 
+
 exports.getAttendee = async (req, res) => {
   const { id } = req.params;
 
+  // Validate ID format
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid attendee ID format',
+    });
+  }
+
   try {
     const attendee = await Attendee.findById(id)
-      .populate('event', 'name startDate endDate location')
-      .populate('code', 'code used');
+      .populate({
+        path: 'event',
+        select: 'name startDate endDate location',
+      })
+      .populate({
+        path: 'code',
+        select: 'code used',
+      });
 
     if (!attendee) {
       return res.status(404).json({
@@ -122,33 +143,67 @@ exports.getAttendee = async (req, res) => {
       });
     }
 
-    const qr = await generateQRCode(attendee._id);
+    // Validate populated data exists
+    if (!attendee.event || !attendee.code) {
+      return res.status(404).json({
+        success: false,
+        message: 'Associated event or code not found',
+      });
+    }
 
-    res.status(200).json({
-      success: true,
-      data: {
-        attendee: {
-          id: attendee._id,
-          name: attendee.name,
-          email: attendee.email,
-          phone: attendee.phone,
-          eventId: attendee.event._id,
-          eventName: attendee.event.name,
-          eventStartDate: attendee.event.startDate,
-          eventEndDate: attendee.event.endDate,
-          eventLocation: attendee.event.location,
-          qr,
-          code: attendee.code.code,
-          codeUsed: attendee.code.used,
-        },
+    // Generate QR code with error handling
+    let qrCode;
+    try {
+      qrCode = await generateQRCode(attendee._id.toString());
+    } catch (qrError) {
+      console.error('QR code generation failed:', qrError);
+      qrCode = null;
+    }
+
+    // Construct response data
+    const responseData = {
+      id: attendee._id,
+      name: attendee.name,
+      email: attendee.email,
+      phone: attendee.phone || null,
+      event: {
+        id: attendee.event._id,
+        name: attendee.event.name,
+        startDate: attendee.event.startDate,
+        endDate: attendee.event.endDate,
+        location: attendee.event.location,
       },
+      code: {
+        id: attendee.code._id,
+        value: attendee.code.code,
+        used: attendee.code.used,
+      },
+      qrCode,
+      createdAt: attendee.createdAt,
+      updatedAt: attendee.updatedAt,
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: 'Attendee retrieved successfully',
+      data: responseData,
     });
   } catch (error) {
     console.error('Error fetching attendee:', error);
-    res.status(500).json({
+
+    // Handle specific error types
+    let statusCode = 500;
+    let errorMessage = 'Failed to fetch attendee';
+
+    if (error.name === 'CastError') {
+      statusCode = 400;
+      errorMessage = 'Invalid attendee ID format';
+    }
+
+    return res.status(statusCode).json({
       success: false,
-      message: 'Failed to fetch attendee',
-      error: error.message,
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };

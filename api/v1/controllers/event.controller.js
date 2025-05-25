@@ -24,7 +24,7 @@ exports.addEvent = async (req, res) => {
   }
 
   try {
-    const newEvent = await EventModel.create({
+    const newEvent = await Event.create({
       name,
       description,
       startDate,
