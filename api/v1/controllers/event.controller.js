@@ -1,5 +1,6 @@
 const Event = require('../models/Event.model');
 const Attendee = require('../models/Attendee.model');
+const { scheduleEventStatusUpdate } = require('../queues/eventStatus');
 
 exports.addEvent = async (req, res) => {
   const {
@@ -37,6 +38,7 @@ exports.addEvent = async (req, res) => {
       account: req.user.id, // Changed from req.user.account to req.user.id to match your auth setup
       status: 'upcoming',
     });
+    await scheduleEventStatusUpdate(newEvent);
 
     res.status(201).json({
       status: true,
@@ -67,19 +69,39 @@ exports.addEvent = async (req, res) => {
   }
 };
 
-
 exports.getAccountEvents = async (req, res) => {
   try {
-    const events = await Event.find({ account: req.user.id })
+    const { status, search } = req.query;
+    const accountId = req.user.id;
+
+    // Build the query
+    const query = { account: accountId };
+
+    // Add status filter if provided
+    if (status) {
+      query.status = { $in: Array.isArray(status) ? status : [status] };
+    }
+
+    // Add search filter if provided
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const events = await Event.find(query)
       .populate('attendees', 'name email')
       .populate('codes', 'code used')
-      .populate('tickets', 'name price');
+      .populate('tickets', 'name price')
+      .sort({ startDate: 1 }); // Sort by start date ascending
 
     res.status(200).json({
       status: true,
       message: 'Events retrieved successfully',
       data: {
-        events: events.map(event => ({
+        events: events.map((event) => ({
           id: event._id,
           name: event.name,
           description: event.description,
@@ -92,6 +114,7 @@ exports.getAccountEvents = async (req, res) => {
           isPublic: event.isPublic,
           status: event.status,
           attendeesCount: event.attendees.length,
+          tickets: event.tickets,
         })),
       },
     });
@@ -102,4 +125,4 @@ exports.getAccountEvents = async (req, res) => {
       message: 'Internal server error',
     });
   }
-}
+};
