@@ -1,3 +1,4 @@
+const { default: mongoose } = require('mongoose');
 const Attendee = require('../models/Attendee.model');
 const Code = require('../models/Code.model');
 const Event = require('../models/Event.model');
