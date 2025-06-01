@@ -252,3 +252,252 @@ exports.getAttendeesByEvent = async (req, res) => {
     });
   }
 };
+
+
+// Get all attendees for a user (across all their events)
+exports.getUserAttendees = async (req, res) => {
+  try {
+    // First get all events for the user
+    const events = await Event.find({ account: req.user._id }).select('_id');
+    
+    if (!events.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'No events found for this user',
+      });
+    }
+
+    const eventIds = events.map(event => event._id);
+
+    // Then get all attendees for these events
+    const attendees = await Attendee.find({ event: { $in: eventIds } })
+      .populate({
+        path: 'event',
+        select: 'name startDate endDate location'
+      })
+      .populate({
+        path: 'code',
+        select: 'code used'
+      })
+      .sort({ createdAt: -1 });
+
+    if (!attendees.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'No attendees found for your events',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        attendees: attendees.map(attendee => ({
+          id: attendee._id,
+          name: attendee.name,
+          email: attendee.email,
+          phone: attendee.phone,
+          status: attendee.code.used ? 'checked-in' : 'registered',
+          event: {
+            id: attendee.event._id,
+            name: attendee.event.name,
+            startDate: attendee.event.startDate,
+            endDate: attendee.event.endDate,
+            location: attendee.event.location,
+          },
+          code: attendee.code.code,
+          createdAt: attendee.createdAt,
+          updatedAt: attendee.updatedAt,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching user attendees:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch attendees',
+      error: error.message,
+    });
+  }
+};
+
+// Check in an attendee
+exports.checkInAttendee = async (req, res) => {
+  const { id } = req.params;
+
+  // Validate ID format
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid attendee ID format',
+    });
+  }
+
+  try {
+    // Find the attendee and populate the code
+    const attendee = await Attendee.findById(id).populate('code');
+
+    if (!attendee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendee not found',
+      });
+    }
+
+    // Check if already checked in
+    if (attendee.code.used) {
+      return res.status(400).json({
+        success: false,
+        message: 'Attendee already checked in',
+      });
+    }
+
+    // Update the code status
+    attendee.code.used = true;
+    attendee.code.usedAt = new Date();
+    await attendee.code.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Attendee checked in successfully',
+      data: {
+        id: attendee._id,
+        name: attendee.name,
+        email: attendee.email,
+        code: attendee.code.code,
+        checkedInAt: attendee.code.usedAt,
+      },
+    });
+  } catch (error) {
+    console.error('Error checking in attendee:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check in attendee',
+      error: error.message,
+    });
+  }
+};
+
+// Update an attendee
+exports.updateAttendee = async (req, res) => {
+  const { id } = req.params;
+  const { name, email, phone } = req.body;
+
+  // Validate ID format
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid attendee ID format',
+    });
+  }
+
+  // Validate required fields
+  if (!name || !email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name and email are required fields',
+    });
+  }
+
+  try {
+    // Find the attendee
+    const attendee = await Attendee.findById(id);
+
+    if (!attendee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendee not found',
+      });
+    }
+
+    // Check if email is being changed to one that already exists for this event
+    if (email !== attendee.email) {
+      const existingAttendee = await Attendee.findOne({ 
+        email, 
+        event: attendee.event 
+      });
+
+      if (existingAttendee) {
+        return res.status(400).json({
+          success: false,
+          message: 'Another attendee with this email already exists for the event',
+        });
+      }
+    }
+
+    // Update the attendee
+    attendee.name = name;
+    attendee.email = email;
+    attendee.phone = phone;
+    await attendee.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Attendee updated successfully',
+      data: {
+        id: attendee._id,
+        name: attendee.name,
+        email: attendee.email,
+        phone: attendee.phone,
+        eventId: attendee.event,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating attendee:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update attendee',
+      error: error.message,
+    });
+  }
+};
+
+// Delete an attendee
+exports.deleteAttendee = async (req, res) => {
+  const { id } = req.params;
+
+  // Validate ID format
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid attendee ID format',
+    });
+  }
+
+  try {
+    // Find and delete the attendee
+    const attendee = await Attendee.findByIdAndDelete(id);
+
+    if (!attendee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendee not found',
+      });
+    }
+
+    // Also delete the associated code
+    await Code.findByIdAndDelete(attendee.code);
+
+    // Remove attendee reference from event
+    await Event.updateOne(
+      { _id: attendee.event },
+      { $pull: { attendees: attendee._id } }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Attendee deleted successfully',
+      data: {
+        id: attendee._id,
+        name: attendee.name,
+        email: attendee.email,
+      },
+    });
+  } catch (error) {
+    console.error('Error deleting attendee:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete attendee',
+      error: error.message,
+    });
+  }
+};
