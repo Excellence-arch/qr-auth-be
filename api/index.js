@@ -1,7 +1,7 @@
 const router = require('express').Router();
 
 const mongoose = require('mongoose');
-const setupDailyMaintenance = require('./v1/cron/maintenance');
+// const setupDailyMaintenance = require('./v1/cron/maintenance');
 
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -13,6 +13,6 @@ mongoose
 
 router.use('/v1', require('./v1/api'));
 
-setupDailyMaintenance();
+// setupDailyMaintenance();
 
 module.exports = router;

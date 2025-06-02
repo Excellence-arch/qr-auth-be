@@ -38,7 +38,7 @@ exports.addEvent = async (req, res) => {
       account: req.user.id, // Changed from req.user.account to req.user.id to match your auth setup
       status: 'upcoming',
     });
-    await scheduleEventStatusUpdate(newEvent);
+    // await scheduleEventStatusUpdate(newEvent);
 
     res.status(201).json({
       status: true,

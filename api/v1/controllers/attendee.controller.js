@@ -62,7 +62,7 @@ exports.addAttendee = async (req, res) => {
     // Create code and attendee in parallel
     const [ticket, code] = await Promise.all([
       ticketPromise,
-      Code.create({ used: false }),
+      Code.create({ event: eventId }),
     ]);
 
     // Set ticket reference if it exists
@@ -70,6 +70,10 @@ exports.addAttendee = async (req, res) => {
       code.ticket = ticket._id;
       await code.save();
     }
+
+    
+    // Generate QR code data
+    const qrData = await generateQRCode(code._id);
 
     // Create attendee
     const newAttendee = await Attendee.create({
@@ -83,6 +87,8 @@ exports.addAttendee = async (req, res) => {
     // Update event references
     event.attendees.push(newAttendee._id);
     event.codes.push(code._id);
+    code.attendee = newAttendee._id;
+    await code.save();
 
     // Save all event changes at once
     await event.save();
@@ -98,7 +104,10 @@ exports.addAttendee = async (req, res) => {
           phone: newAttendee.phone,
           eventId: newAttendee.event,
           eventName: event.name,
-          code: code._id,
+          code: code.code,
+          qrCode: qrData.qrImage,
+          qrPublicUrl: qrData.publicUrl,
+          qrAdminUrl: qrData.adminUrl,
           ticketType: ticket?.name || 'standard',
         },
       },
@@ -155,7 +164,7 @@ exports.getAttendee = async (req, res) => {
     // Generate QR code with error handling
     let qrCode;
     try {
-      qrCode = await generateQRCode(attendee._id.toString());
+      qrCode = await generateQRCode(attendee.code);
     } catch (qrError) {
       console.error('QR code generation failed:', qrError);
       qrCode = null;
@@ -179,7 +188,7 @@ exports.getAttendee = async (req, res) => {
         value: attendee.code.code,
         used: attendee.code.used,
       },
-      qrCode,
+      qrCode: qrCode.qrImage,
       createdAt: attendee.createdAt,
       updatedAt: attendee.updatedAt,
     };
@@ -256,9 +265,9 @@ exports.getAttendeesByEvent = async (req, res) => {
 
 // Get all attendees for a user (across all their events)
 exports.getUserAttendees = async (req, res) => {
+  const accountId = req.user.id
   try {
-    // First get all events for the user
-    const events = await Event.find({ account: req.user._id }).select('_id');
+    const events = await Event.find({ account: accountId });
     
     if (!events.length) {
       return res.status(404).json({
@@ -292,7 +301,7 @@ exports.getUserAttendees = async (req, res) => {
       success: true,
       data: {
         attendees: attendees.map(attendee => ({
-          id: attendee._id,
+          _id: attendee._id,
           name: attendee.name,
           email: attendee.email,
           phone: attendee.phone,
