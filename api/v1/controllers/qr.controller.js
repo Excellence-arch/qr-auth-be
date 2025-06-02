@@ -126,6 +126,7 @@ exports.getCodeInfo = async (req, res) => {
 exports.validateCode = async (req, res) => {
   try {
     const { code } = req.params;
+    // console.log(code)
     const validation = await validateQRCode(code, true); // Pass true for admin request
 
     if (validation.status === 'invalid') {
