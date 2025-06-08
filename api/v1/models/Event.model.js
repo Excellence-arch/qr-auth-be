@@ -31,6 +31,11 @@ const eventSchema = new mongoose.Schema(
         ref: 'Code',
       },
     ],
+    registrars: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account',
+      required: true,
+    },
     image: { type: String },
     capacity: { type: Number, default: 0 },
     isPublic: { type: Boolean, default: true },

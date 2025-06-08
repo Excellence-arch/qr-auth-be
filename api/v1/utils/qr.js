@@ -3,6 +3,7 @@ const Code = require('../models/Code.model');
 
 exports.generateQRCode = async (codeId) => {
   try {
+    console.log(codeId);
     const code = await Code.findById(codeId);
     if (!code) throw new Error('Code not found');
 

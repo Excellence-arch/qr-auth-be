@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { ROLES } = require('../utils/enum.js');
 
 const accountSchema = new mongoose.Schema(
   {
@@ -8,7 +9,7 @@ const accountSchema = new mongoose.Schema(
     username: { type: String },
     password: { type: String },
     email: { type: String },
-    role: { type: String },
+    role: { type: String, enum: Object.values(ROLES), default: ROLES.USER },
     phone: { type: String },
     events: [
       {
